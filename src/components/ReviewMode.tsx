@@ -6,6 +6,7 @@ import { AnnotationCanvas } from "./AnnotationCanvas";
 import { AnnotationToolbar } from "./AnnotationToolbar";
 import { CommentComposer } from "./CommentComposer";
 import { CommentList } from "./CommentList";
+import { TextLabelOverlay } from "./TextLabelOverlay";
 import { type DraftDemo } from "./DemoRecorder";
 import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { ANNOTATION_COLORS, STROKE_WIDTHS } from "../config";
@@ -13,9 +14,12 @@ import { uid } from "../lib/util";
 import type {
   AnnotationShape,
   AnnotationTool,
+  CategoryKey,
   Comment,
+  Point,
   Review,
 } from "../types";
+import { DEFAULT_LIBRARY, type QuickLibrary } from "../library";
 
 interface ReviewModeProps {
   review: Review;
@@ -42,6 +46,15 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
   const [draftText, setDraftText] = useState("");
   const [draftAnnotation, setDraftAnnotation] = useState<AnnotationShape[]>([]);
   const [draftDemo, setDraftDemo] = useState<DraftDemo | null>(null);
+  const [draftCategories, setDraftCategories] = useState<CategoryKey[]>([]);
+  // Optional on-frame label position. `null` means "no label on the frame";
+  // the canonical `draftText` is unaffected by show/hide. Default position
+  // when first shown sits the label near the bottom-center of the frame.
+  const [draftTextLabel, setDraftTextLabel] = useState<Point | null>(null);
+
+  // The teacher's editable quick-comment library — session state in the
+  // prototype; a per-teacher saved library in Solmido.
+  const [library, setLibrary] = useState<QuickLibrary>(() => DEFAULT_LIBRARY);
 
   const [tool, setTool] = useState<AnnotationTool>("arrow");
   const [color, setColor] = useState(ANNOTATION_COLORS[0]);
@@ -68,6 +81,8 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
     setDraftText("");
     setDraftAnnotation([]);
     setDraftDemo(null);
+    setDraftCategories([]);
+    setDraftTextLabel(null);
   }, []);
 
   const startNewComment = useCallback(() => {
@@ -88,6 +103,8 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
           ? { source: c.demo.source, url: c.demo.src, mimeType: c.demo.mimeType ?? "" }
           : null
       );
+      setDraftCategories(c.categories ? [...c.categories] : []);
+      setDraftTextLabel(c.textLabel ? { ...c.textLabel } : null);
       setComposing({ editingId: c.id, timestampMs: c.timestampMs });
     },
     [controls]
@@ -114,12 +131,16 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
         }
       : undefined;
 
+    const cleanText = draftText.trim();
     const base: Comment = {
       id: composing.editingId ?? uid("c_"),
       timestampMs: composing.timestampMs,
-      text: draftText.trim() || undefined,
+      text: cleanText || undefined,
+      // Persist the label position only if there's text to label.
+      textLabel: cleanText && draftTextLabel ? draftTextLabel : undefined,
       annotation: draftAnnotation.length > 0 ? draftAnnotation : undefined,
       demo,
+      categories: draftCategories.length > 0 ? draftCategories : undefined,
     };
 
     const comments = composing.editingId
@@ -130,7 +151,17 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
     setActiveId(base.id);
     setComposing(null);
     resetDraft();
-  }, [composing, draftText, draftAnnotation, draftDemo, review, onChange, resetDraft]);
+  }, [
+    composing,
+    draftText,
+    draftAnnotation,
+    draftDemo,
+    draftCategories,
+    draftTextLabel,
+    review,
+    onChange,
+    resetDraft,
+  ]);
 
   const deleteComment = useCallback(
     (id: string) => {
@@ -168,11 +199,13 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
           return;
         }
         if (!typing) {
+          // T was a "text annotation" shortcut and is intentionally gone —
+          // the on-frame text label lives on a separate overlay tied to the
+          // canonical comment text, not a drawn shape.
           const map: Record<string, AnnotationTool> = {
             a: "arrow",
             c: "circle",
             p: "pen",
-            t: "text",
           };
           const t = map[e.key.toLowerCase()];
           if (t) {
@@ -239,6 +272,25 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
               strokeWidth={strokeWidth}
               editable={annotationEditable}
             />
+
+            {composing && draftTextLabel && (
+              <TextLabelOverlay
+                text={draftText}
+                position={draftTextLabel}
+                editable
+                onTextChange={setDraftText}
+                onPositionChange={setDraftTextLabel}
+                onHide={() => setDraftTextLabel(null)}
+              />
+            )}
+            {!composing && activeComment?.textLabel && activeComment.text && (
+              <TextLabelOverlay
+                text={activeComment.text}
+                position={activeComment.textLabel}
+                editable={false}
+              />
+            )}
+
             {composing && state.playing && (
               <div className="stage__pausehint">Pause to annotate the frame</div>
             )}
@@ -301,6 +353,17 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
             onSave={saveComment}
             onCancel={cancelComposing}
             isEditing={composing.editingId !== null}
+            categories={draftCategories}
+            setCategories={setDraftCategories}
+            library={library}
+            setLibrary={setLibrary}
+            reviewMode={review.mode}
+            textLabel={draftTextLabel}
+            onShowTextLabel={() =>
+              // Default to lower-center of the frame on first show.
+              setDraftTextLabel({ x: 0.18, y: 0.82 })
+            }
+            onHideTextLabel={() => setDraftTextLabel(null)}
           />
         ) : (
           <>

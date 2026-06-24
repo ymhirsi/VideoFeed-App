@@ -19,6 +19,7 @@ export default function App() {
     id: uid("r_"),
     videoSrc: DEFAULT_VIDEO_SRC,
     studentName: "",
+    mode: "instrument",
     createdAt: Date.now(),
     comments: [],
   }));
@@ -74,6 +75,33 @@ export default function App() {
         </div>
 
         <div className="topbar__actions">
+          <label className="topbar__mode" title="Show Enunciation quick comments for voice reviews">
+            <span className="topbar__mode-label">Review for</span>
+            <div className="seg seg--sm" role="tablist" aria-label="Review for">
+              <button
+                role="tab"
+                aria-selected={review.mode === "instrument"}
+                className={
+                  "seg__btn" + (review.mode === "instrument" ? " is-active" : "")
+                }
+                onClick={() =>
+                  setReview((r) => ({ ...r, mode: "instrument" }))
+                }
+              >
+                Instrument
+              </button>
+              <button
+                role="tab"
+                aria-selected={review.mode === "voice"}
+                className={
+                  "seg__btn" + (review.mode === "voice" ? " is-active" : "")
+                }
+                onClick={() => setReview((r) => ({ ...r, mode: "voice" }))}
+              >
+                Voice
+              </button>
+            </div>
+          </label>
           <input
             className="topbar__name"
             placeholder="Student name"

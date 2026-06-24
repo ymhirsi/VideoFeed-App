@@ -3,6 +3,7 @@ import { VideoStage } from "./VideoStage";
 import { TransportControls } from "./TransportControls";
 import { Timeline } from "./Timeline";
 import { AnnotationCanvas } from "./AnnotationCanvas";
+import { TextLabelOverlay } from "./TextLabelOverlay";
 import { useVideoPlayer } from "../hooks/useVideoPlayer";
 import { formatTime } from "../lib/util";
 import type { Comment, Review } from "../types";
@@ -83,11 +84,23 @@ export function WatchMode({ review }: WatchModeProps) {
               editable={false}
             />
 
+            {active && !demoPlaying && active.textLabel && active.text && (
+              <TextLabelOverlay
+                text={active.text}
+                position={active.textLabel}
+                editable={false}
+              />
+            )}
+
             {active && !demoPlaying && (
               <div className="watch__note">
                 <div className="watch__note-card">
                   <span className="watch__note-ts">{formatTime(active.timestampMs)}</span>
-                  {active.text && <p className="watch__note-text">{active.text}</p>}
+                  {/* If the comment has an on-frame label, the text already
+                      lives on the frame — don't repeat it here. */}
+                  {active.text && !active.textLabel && (
+                    <p className="watch__note-text">{active.text}</p>
+                  )}
                   <div className="watch__note-actions">
                     {active.demo && (
                       <button

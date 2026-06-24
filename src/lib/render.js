@@ -15,7 +15,10 @@
  *   arrow  — points[0] = tail, points[1] = head
  *   circle — points[0] & points[1] = opposite corners of the bounding box
  *   pen    — polyline through all points
- *   text   — points[0] = anchor (top-left); `label` holds the text
+ *
+ * The on-frame text *label* is NOT rendered here — it's a separate DOM
+ * overlay bound to the comment's canonical text (see TextLabelOverlay /
+ * the player runtime), so it can be moved and re-edited.
  */
 
 // strokeWidth is stored relative to a 1000px-wide reference frame.
@@ -65,8 +68,6 @@ export function drawShape(ctx, shape, w, h) {
     drawArrow(ctx, pts, lineWidth);
   } else if (shape.tool === "circle") {
     drawEllipse(ctx, pts);
-  } else if (shape.tool === "text") {
-    drawText(ctx, shape, pts[0], w);
   }
 
   ctx.restore();
@@ -121,20 +122,4 @@ function drawEllipse(ctx, pts) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.stroke();
-}
-
-function drawText(ctx, shape, anchor, w) {
-  var label = shape.label || "";
-  if (!label) return;
-  // Font size derives from strokeWidth so the same control governs text scale.
-  var fontPx = Math.max(12, (shape.strokeWidth * w * 4) / STROKE_REFERENCE_WIDTH);
-  ctx.shadowBlur = fontPx * 0.18;
-  ctx.font =
-    fontPx +
-    'px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.textBaseline = "top";
-  var lines = String(label).split("\n");
-  for (var i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], anchor.x, anchor.y + i * fontPx * 1.25);
-  }
 }

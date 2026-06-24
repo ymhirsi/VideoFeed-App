@@ -12,18 +12,41 @@ export interface Review {
   videoSrc: string;
   /** Optional label used to name the exported file, e.g. "Jane Doe". */
   studentName?: string;
+  /** Gates the Enunciation quick-comment category. Default is "instrument". */
+  mode: "instrument" | "voice";
   createdAt: number;
   comments: Comment[];
 }
 
+/**
+ * Quick-comment library category keys. Score-study has internal sub-groups
+ * (Notes / Rhythm / Articulation / Expression / Dynamics) tagged under one
+ * top-level category so Solmido can filter on it later.
+ */
+export type CategoryKey = "technique" | "tempo" | "score-study" | "enunciation";
+
 export interface Comment {
   id: string;
   timestampMs: number;
+  /**
+   * Canonical comment text — the single source of truth. Every editor surface
+   * (composer textarea, on-frame label, side list) reads and writes THIS value;
+   * there are no independent copies.
+   */
   text?: string;
+  /**
+   * If set, the canonical `text` is also rendered as a movable label on the
+   * frame at this normalized (0–1) position. Hiding the label clears this
+   * field without affecting `text`. Position persists into Watch mode and the
+   * exported player.
+   */
+  textLabel?: Point;
   /** Frame annotation; all coordinates normalized 0–1 relative to the video frame. */
   annotation?: AnnotationShape[];
   /** At most one demonstration clip per comment. */
   demo?: Demo;
+  /** Quick-comment categories whose presets the teacher tapped while composing. */
+  categories?: CategoryKey[];
 }
 
 export interface Demo {
@@ -34,7 +57,12 @@ export interface Demo {
   mimeType?: string;
 }
 
-export type AnnotationTool = "arrow" | "circle" | "pen" | "text";
+/**
+ * Visual annotation tools. The on-frame text *label* is NOT an annotation —
+ * it's a separate movable display surface bound to the comment's canonical
+ * `text`. So the toolbar only offers shape tools.
+ */
+export type AnnotationTool = "arrow" | "circle" | "pen";
 
 export interface AnnotationShape {
   tool: AnnotationTool;
@@ -43,8 +71,6 @@ export interface AnnotationShape {
   strokeWidth: number;
   /** Normalized 0–1 points. Semantics depend on tool (see lib/render). */
   points: Point[];
-  /** Text content for the "text" tool. */
-  label?: string;
 }
 
 export interface Point {

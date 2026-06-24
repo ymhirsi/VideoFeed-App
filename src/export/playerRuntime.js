@@ -47,6 +47,7 @@
     '      <div class="pv-stage">',
     '        <video id="pv-video" class="pv-video" playsinline preload="metadata"></video>',
     '        <canvas id="pv-canvas" class="pv-canvas"></canvas>',
+    '        <div id="pv-label" class="pv-label" hidden></div>',
     '        <div id="pv-note" class="pv-note" hidden></div>',
     '        <div id="pv-demo" class="pv-demo" hidden></div>',
     "      </div>",
@@ -78,6 +79,7 @@
   var playBtn = el("pv-play");
   var noteEl = el("pv-note");
   var demoEl = el("pv-demo");
+  var labelEl = el("pv-label");
 
   video.src = review.videoSrc;
 
@@ -121,16 +123,30 @@
   window.addEventListener("resize", redraw);
   video.addEventListener("loadedmetadata", redraw);
 
-  // --- Note / demo panels ---
+  // --- Note / demo / on-frame label ---
   function renderPanels() {
     var c = activeComment();
+    // On-frame label: if the comment carries a textLabel position, show the
+    // canonical text at that position. Read-only in the exported player.
+    if (c && c.text && c.textLabel && !demoPlaying) {
+      labelEl.textContent = c.text;
+      labelEl.style.left = (c.textLabel.x * 100) + "%";
+      labelEl.style.top = (c.textLabel.y * 100) + "%";
+      labelEl.hidden = false;
+    } else {
+      labelEl.hidden = true;
+      labelEl.textContent = "";
+    }
+
     if (c && !demoPlaying) {
+      // Don't repeat the text in the bottom card when it's already on-frame.
+      var showInline = c.text && !c.textLabel;
       var html =
         '<div class="pv-note-card">' +
         '<span class="pv-note-ts">' +
         fmt(c.timestampMs) +
         "</span>" +
-        (c.text ? '<p class="pv-note-text"></p>' : "") +
+        (showInline ? '<p class="pv-note-text"></p>' : "") +
         '<div class="pv-note-actions">' +
         (c.demo
           ? '<button id="pv-watch" class="pv-btn pv-btn-primary">▶ Watch demonstration</button>'
@@ -138,7 +154,7 @@
         '<button id="pv-continue" class="pv-btn">Continue ▸</button>' +
         "</div></div>";
       noteEl.innerHTML = html;
-      if (c.text) noteEl.querySelector(".pv-note-text").textContent = c.text;
+      if (showInline) noteEl.querySelector(".pv-note-text").textContent = c.text;
       noteEl.hidden = false;
       var w = el("pv-watch");
       if (w) w.onclick = function () {

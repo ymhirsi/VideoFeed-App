@@ -13,11 +13,13 @@ interface AnnotationToolbarProps {
   canUndo: boolean;
 }
 
+// Note: there is no "Text" tool in the toolbar. The on-frame text label is a
+// separate movable display surface bound to the comment's canonical text —
+// it is created/hidden from the composer, not drawn here.
 const TOOLS: { id: AnnotationTool; label: string; key: string }[] = [
   { id: "arrow", label: "Arrow", key: "A" },
   { id: "circle", label: "Circle", key: "C" },
   { id: "pen", label: "Pen", key: "P" },
-  { id: "text", label: "Text", key: "T" },
 ];
 
 export function AnnotationToolbar({
@@ -132,12 +134,6 @@ function ToolIcon({ tool }: { tool: AnnotationTool }) {
       return (
         <svg {...common}>
           <path d="M4 20s2-6 8-12 6-4 6-4-2 0-4 6-12 8-12 8 1-1 2 2z" />
-        </svg>
-      );
-    case "text":
-      return (
-        <svg {...common}>
-          <path d="M5 6h14M12 6v13M9 19h6" />
         </svg>
       );
   }

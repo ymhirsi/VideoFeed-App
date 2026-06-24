@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { drawShapes, drawShape } from "../lib/render.js";
 import type { AnnotationShape, AnnotationTool, Point } from "../types";
 import { clamp } from "../lib/util";
@@ -13,16 +13,16 @@ interface AnnotationCanvasProps {
   editable: boolean;
 }
 
-interface PendingText {
-  point: Point; // normalized
-  cssLeft: number;
-  cssTop: number;
-}
-
 /**
- * Overlay drawing surface. Uses Pointer Events so mouse, touch and stylus all
- * work. All committed coordinates are normalized 0–1 against the frame, so the
- * drawing scales with the video at any display size.
+ * Overlay drawing surface for arrow / circle / pen.
+ *
+ * Uses Pointer Events so mouse, touch and stylus all work. All committed
+ * coordinates are normalized 0–1 against the frame, so the drawing scales
+ * with the video at any display size.
+ *
+ * Note: there is no "text" tool here. The on-frame text label is rendered by
+ * a sibling overlay (`TextLabelOverlay`) bound to the comment's canonical
+ * text value, so it can be moved and re-edited at any time.
  */
 export function AnnotationCanvas({
   shapes,
@@ -36,8 +36,6 @@ export function AnnotationCanvas({
   const wrapRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<AnnotationShape | null>(null);
   const drawingRef = useRef(false);
-  const [pendingText, setPendingText] = useState<PendingText | null>(null);
-  const [textValue, setTextValue] = useState("");
 
   // Match the backing store to the displayed size. Done inside redraw (not only
   // via ResizeObserver) so the overlay is always correct even if RO is delayed.
@@ -90,20 +88,8 @@ export function AnnotationCanvas({
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!editable) return;
-    if (pendingText) return; // finish the text input first
     e.preventDefault();
     const p = toNorm(e);
-
-    if (tool === "text") {
-      const rect = wrapRef.current!.getBoundingClientRect();
-      setPendingText({
-        point: p,
-        cssLeft: e.clientX - rect.left,
-        cssTop: e.clientY - rect.top,
-      });
-      setTextValue("");
-      return;
-    }
 
     drawingRef.current = true;
     (e.target as Element).setPointerCapture?.(e.pointerId);
@@ -142,25 +128,6 @@ export function AnnotationCanvas({
     redraw();
   };
 
-  const commitText = () => {
-    if (!pendingText) return;
-    const value = textValue.trim();
-    if (value) {
-      onChange([
-        ...shapes,
-        {
-          tool: "text",
-          color,
-          strokeWidth,
-          points: [pendingText.point],
-          label: value,
-        },
-      ]);
-    }
-    setPendingText(null);
-    setTextValue("");
-  };
-
   return (
     <div
       ref={wrapRef}
@@ -175,34 +142,8 @@ export function AnnotationCanvas({
         onPointerUp={finishStroke}
         onPointerCancel={finishStroke}
         onPointerLeave={finishStroke}
-        style={{ pointerEvents: editable && !pendingText ? "auto" : "none" }}
+        style={{ pointerEvents: editable ? "auto" : "none" }}
       />
-      {pendingText && (
-        <input
-          className="annot__text-input"
-          style={{
-            left: pendingText.cssLeft,
-            top: pendingText.cssTop,
-            color,
-          }}
-          autoFocus
-          value={textValue}
-          placeholder="Label…"
-          onChange={(e) => setTextValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commitText();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              setPendingText(null);
-              setTextValue("");
-            }
-            e.stopPropagation();
-          }}
-          onBlur={commitText}
-        />
-      )}
     </div>
   );
 }
