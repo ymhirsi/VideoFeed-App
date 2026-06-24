@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\nodejs\\\\node.exe\", \"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\", \"$env:APPDATA\\\\npm\\\\node.exe\", \"$env:ProgramFiles\\(x86\\)\\\\nodejs\\\\node.exe\"\\); foreach\\($p in $paths\\){ if\\(Test-Path $p\\){ Write-Output \"FOUND: $p\" } }; Write-Output \"--- nvm ---\"; if\\(Test-Path \"$env:APPDATA\\\\nvm\"\\){ Get-ChildItem \"$env:APPDATA\\\\nvm\" -Directory | Select-Object -ExpandProperty Name }; Write-Output \"--- where ---\"; Get-Command node -ErrorAction SilentlyContinue)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); node --version; npm --version)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}
