@@ -15,8 +15,6 @@ interface TextLabelOverlayProps {
   editable: boolean;
   onTextChange?: (text: string) => void;
   onPositionChange?: (next: Point) => void;
-  /** Remove the on-frame label without deleting the comment's text. */
-  onHide?: () => void;
 }
 
 /**
@@ -38,7 +36,6 @@ export function TextLabelOverlay({
   editable,
   onTextChange,
   onPositionChange,
-  onHide,
 }: TextLabelOverlayProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -68,7 +65,6 @@ export function TextLabelOverlay({
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!editable || editing) return;
-    if ((e.target as HTMLElement).closest(".tlabel__hide")) return; // let the hide button handle its own click
     const parent = wrapRef.current?.parentElement;
     const label = labelRef.current;
     if (!parent || !label) return;
@@ -164,22 +160,6 @@ export function TextLabelOverlay({
           />
         ) : (
           <span className="tlabel__text">{displayText}</span>
-        )}
-
-        {editable && !editing && (
-          <button
-            type="button"
-            className="tlabel__hide"
-            title="Hide label (keeps the comment text)"
-            aria-label="Hide label from frame"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onHide?.();
-            }}
-          >
-            ×
-          </button>
         )}
       </div>
     </div>

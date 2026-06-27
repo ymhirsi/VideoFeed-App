@@ -36,9 +36,13 @@ html, body {
 .pv-video { width: 100%; height: auto; display: block; }
 .pv-canvas { position: absolute; inset: 0; pointer-events: none; }
 
-/* On-frame text label (read-only in the exported player). Position is anchored
-   via top/left as a percentage so it sits at the same normalized 0–1 spot
-   regardless of display size. */
+/* Multi-label layer — holds N labels at their normalized 0–1 positions. */
+.pv-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* On-frame text label (read-only in the exported player). */
 .pv-label {
   position: absolute;
   max-width: 60%;
@@ -52,7 +56,32 @@ html, body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   white-space: pre-wrap;
   pointer-events: none;
-  transform: translateY(0);
+}
+
+/* Floating strip of demo buttons for active duration-kind comments. */
+.pv-demobar {
+  position: absolute;
+  inset: auto 0 12px 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  flex-wrap: wrap;
+}
+.pv-demobar-btn { font-size: 13px; padding: 7px 12px; }
+
+.pv-note-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pv-note-list .pv-note-text {
+  margin: 0;
+  font-size: 15px;
+  white-space: pre-wrap;
 }
 
 .pv-note {

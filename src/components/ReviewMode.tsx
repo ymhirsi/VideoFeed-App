@@ -16,10 +16,67 @@ import type {
   AnnotationTool,
   CategoryKey,
   Comment,
+  Playback,
   Point,
   Review,
 } from "../types";
 import { DEFAULT_LIBRARY, type QuickLibrary } from "../library";
+
+/**
+ * Five staggered default positions for new on-frame labels so two overlapping
+ * comments don't land on top of each other before the teacher drags them. The
+ * teacher is still free to drag any label anywhere.
+ */
+const DEFAULT_LABEL_POSITIONS: Point[] = [
+  { x: 0.04, y: 0.82 },
+  { x: 0.58, y: 0.82 },
+  { x: 0.30, y: 0.06 },
+  { x: 0.04, y: 0.40 },
+  { x: 0.58, y: 0.40 },
+];
+
+const DEFAULT_PLAYBACK: Playback = {
+  kind: "duration",
+  durationMs: 4000,
+  repeat: 1,
+};
+
+/**
+ * Effective span of a comment (start..end in ms) for default-position
+ * collision detection. "Pause" comments hold indefinitely; treat them as
+ * covering only their starting moment for placement purposes.
+ */
+function spanForPlacement(c: Comment): { start: number; end: number } {
+  const start = c.timestampMs;
+  const pb = c.playback ?? DEFAULT_PLAYBACK;
+  if (pb.kind === "pause") return { start, end: start + 1 };
+  const dur = pb.durationMs ?? 4000;
+  const reps = Math.max(1, pb.repeat ?? 1);
+  return { start, end: start + dur * reps };
+}
+
+function pickDefaultLabelPosition(
+  comments: Comment[],
+  atMs: number,
+  editingId: string | null,
+): Point {
+  const overlapping = comments.filter((c) => {
+    if (c.id === editingId) return false;
+    if (!c.textLabel) return false;
+    const { start, end } = spanForPlacement(c);
+    return atMs >= start && atMs < end;
+  });
+  const usedKeys = new Set(
+    overlapping.map((c) =>
+      `${Math.round(c.textLabel!.x * 100)},${Math.round(c.textLabel!.y * 100)}`,
+    ),
+  );
+  for (const p of DEFAULT_LABEL_POSITIONS) {
+    const k = `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
+    if (!usedKeys.has(k)) return p;
+  }
+  return DEFAULT_LABEL_POSITIONS[0];
+}
 
 interface ReviewModeProps {
   review: Review;
@@ -47,10 +104,13 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
   const [draftAnnotation, setDraftAnnotation] = useState<AnnotationShape[]>([]);
   const [draftDemo, setDraftDemo] = useState<DraftDemo | null>(null);
   const [draftCategories, setDraftCategories] = useState<CategoryKey[]>([]);
-  // Optional on-frame label position. `null` means "no label on the frame";
-  // the canonical `draftText` is unaffected by show/hide. Default position
-  // when first shown sits the label near the bottom-center of the frame.
-  const [draftTextLabel, setDraftTextLabel] = useState<Point | null>(null);
+  // Label position is always tracked while composing. Whether the label
+  // renders on the frame is purely a function of whether `draftText` is
+  // non-empty — there is no separate show/hide toggle.
+  const [draftTextLabel, setDraftTextLabel] = useState<Point>(
+    DEFAULT_LABEL_POSITIONS[0],
+  );
+  const [draftPlayback, setDraftPlayback] = useState<Playback>(DEFAULT_PLAYBACK);
 
   // The teacher's editable quick-comment library — session state in the
   // prototype; a per-teacher saved library in Solmido.
@@ -82,14 +142,20 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
     setDraftAnnotation([]);
     setDraftDemo(null);
     setDraftCategories([]);
-    setDraftTextLabel(null);
+    setDraftTextLabel(DEFAULT_LABEL_POSITIONS[0]);
+    setDraftPlayback(DEFAULT_PLAYBACK);
   }, []);
 
   const startNewComment = useCallback(() => {
     controls.pause();
     resetDraft();
+    // Pick a default label position that doesn't already collide with
+    // overlapping comments' labels — the teacher can still drag it.
+    setDraftTextLabel(
+      pickDefaultLabelPosition(review.comments, state.currentMs, null),
+    );
     setComposing({ editingId: null, timestampMs: state.currentMs });
-  }, [controls, resetDraft, state.currentMs]);
+  }, [controls, resetDraft, state.currentMs, review.comments]);
 
   const startEdit = useCallback(
     (c: Comment) => {
@@ -104,10 +170,15 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
           : null
       );
       setDraftCategories(c.categories ? [...c.categories] : []);
-      setDraftTextLabel(c.textLabel ? { ...c.textLabel } : null);
+      setDraftTextLabel(
+        c.textLabel
+          ? { ...c.textLabel }
+          : pickDefaultLabelPosition(review.comments, c.timestampMs, c.id),
+      );
+      setDraftPlayback(c.playback ?? DEFAULT_PLAYBACK);
       setComposing({ editingId: c.id, timestampMs: c.timestampMs });
     },
-    [controls]
+    [controls, review.comments]
   );
 
   const cancelComposing = useCallback(() => {
@@ -136,8 +207,9 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
       id: composing.editingId ?? uid("c_"),
       timestampMs: composing.timestampMs,
       text: cleanText || undefined,
-      // Persist the label position only if there's text to label.
-      textLabel: cleanText && draftTextLabel ? draftTextLabel : undefined,
+      // Label always present when there's text — show-on-frame is the default.
+      textLabel: cleanText ? draftTextLabel : undefined,
+      playback: draftPlayback,
       annotation: draftAnnotation.length > 0 ? draftAnnotation : undefined,
       demo,
       categories: draftCategories.length > 0 ? draftCategories : undefined,
@@ -158,6 +230,7 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
     draftDemo,
     draftCategories,
     draftTextLabel,
+    draftPlayback,
     review,
     onChange,
     resetDraft,
@@ -273,14 +346,13 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
               editable={annotationEditable}
             />
 
-            {composing && draftTextLabel && (
+            {composing && draftText.trim().length > 0 && (
               <TextLabelOverlay
                 text={draftText}
                 position={draftTextLabel}
                 editable
                 onTextChange={setDraftText}
                 onPositionChange={setDraftTextLabel}
-                onHide={() => setDraftTextLabel(null)}
               />
             )}
             {!composing && activeComment?.textLabel && activeComment.text && (
@@ -358,12 +430,8 @@ export function ReviewMode({ review, onChange }: ReviewModeProps) {
             library={library}
             setLibrary={setLibrary}
             reviewMode={review.mode}
-            textLabel={draftTextLabel}
-            onShowTextLabel={() =>
-              // Default to lower-center of the frame on first show.
-              setDraftTextLabel({ x: 0.18, y: 0.82 })
-            }
-            onHideTextLabel={() => setDraftTextLabel(null)}
+            playback={draftPlayback}
+            setPlayback={setDraftPlayback}
           />
         ) : (
           <>

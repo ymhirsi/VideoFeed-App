@@ -35,18 +35,40 @@ export interface Comment {
    */
   text?: string;
   /**
-   * If set, the canonical `text` is also rendered as a movable label on the
-   * frame at this normalized (0–1) position. Hiding the label clears this
-   * field without affecting `text`. Position persists into Watch mode and the
-   * exported player.
+   * Normalized 0–1 position of the on-frame label. The label renders whenever
+   * `text` is non-empty — there is no separate show/hide flag. Position is
+   * still draggable and re-editable; only its coordinates live in the model.
    */
   textLabel?: Point;
+  /**
+   * How this comment plays back in Watch mode. Defaults (when omitted) to
+   * `{ kind: "duration", durationMs: 4000, repeat: 1 }` so legacy data
+   * (saved before this field existed) still plays sensibly.
+   */
+  playback?: Playback;
   /** Frame annotation; all coordinates normalized 0–1 relative to the video frame. */
   annotation?: AnnotationShape[];
   /** At most one demonstration clip per comment. */
   demo?: Demo;
   /** Quick-comment categories whose presets the teacher tapped while composing. */
   categories?: CategoryKey[];
+}
+
+export type PlaybackKind = "pause" | "duration";
+
+export interface Playback {
+  kind: PlaybackKind;
+  /**
+   * For "duration": how long (ms) the comment stays visible while the video
+   * keeps playing. Ignored for "pause" (which holds until the student
+   * continues).
+   */
+  durationMs?: number;
+  /**
+   * For "duration": how many times to play the span. 1 = play once;
+   * 2 = play, seek back, play again. Ignored for "pause".
+   */
+  repeat?: number;
 }
 
 export interface Demo {

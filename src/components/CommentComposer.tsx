@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { DemoRecorder, type DraftDemo } from "./DemoRecorder";
 import { QuickLibrary } from "./QuickLibrary";
 import { formatTime } from "../lib/util";
-import type { CategoryKey, Point } from "../types";
+import type { CategoryKey, Playback } from "../types";
 import {
   CATEGORY_LABELS,
   type LibraryPreset,
@@ -28,10 +28,9 @@ interface CommentComposerProps {
   library: QuickLibraryShape;
   setLibrary: (next: QuickLibraryShape) => void;
   reviewMode: "instrument" | "voice";
-  /** Normalized 0–1 position when the on-frame label is shown, else null. */
-  textLabel: Point | null;
-  onShowTextLabel: () => void;
-  onHideTextLabel: () => void;
+  /** Per-comment playback behavior for Watch mode. */
+  playback: Playback;
+  setPlayback: React.Dispatch<React.SetStateAction<Playback>>;
 }
 
 /**
@@ -56,9 +55,8 @@ export function CommentComposer({
   library,
   setLibrary,
   reviewMode,
-  textLabel,
-  onShowTextLabel,
-  onHideTextLabel,
+  playback,
+  setPlayback,
 }: CommentComposerProps) {
   const canSave =
     text.trim().length > 0 || annotationCount > 0 || demo !== null;
@@ -110,41 +108,73 @@ export function CommentComposer({
         autoFocus
       />
 
-      <div className="composer__labelrow">
-        {textLabel ? (
-          <>
-            <span className="composer__labelstatus">
-              <span className="composer__labeldot" /> Showing as a label on the
-              video — drag to move, double-click to edit.
-            </span>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={onHideTextLabel}
-            >
-              Hide label
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="composer__labelhint">
-              Pin this text as a movable label on the video.
-            </span>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={onShowTextLabel}
-              disabled={text.trim().length === 0}
-              title={
-                text.trim().length === 0
-                  ? "Add some text first"
-                  : "Show on video"
-              }
-            >
-              Show on video
-            </button>
-          </>
-        )}
+      {/* On-frame label is automatic — no show/hide toggle. Text appears as a
+          draggable, re-editable label whenever there is text. */}
+      <div className="composer__pb">
+        <span className="composer__label">Playback in Watch mode</span>
+        <label
+          className={
+            "composer__pb-opt" +
+            (playback.kind === "duration" ? " is-active" : "")
+          }
+        >
+          <input
+            type="radio"
+            name="composer-playback"
+            checked={playback.kind === "duration"}
+            onChange={() =>
+              setPlayback((p) => ({
+                kind: "duration",
+                durationMs: p.durationMs ?? 4000,
+                repeat: p.repeat ?? 1,
+              }))
+            }
+          />
+          <span className="composer__pb-opt-text">
+            Show for
+            <input
+              type="number"
+              min={1}
+              max={60}
+              step={1}
+              className="composer__pb-num"
+              disabled={playback.kind !== "duration"}
+              value={Math.round((playback.durationMs ?? 4000) / 1000)}
+              onChange={(e) => {
+                const s = Math.max(1, Math.min(60, Number(e.target.value) || 1));
+                setPlayback((p) => ({ ...p, kind: "duration", durationMs: s * 1000 }));
+              }}
+            />
+            s, repeat
+            <input
+              type="number"
+              min={1}
+              max={9}
+              step={1}
+              className="composer__pb-num"
+              disabled={playback.kind !== "duration"}
+              value={playback.repeat ?? 1}
+              onChange={(e) => {
+                const n = Math.max(1, Math.min(9, Number(e.target.value) || 1));
+                setPlayback((p) => ({ ...p, kind: "duration", repeat: n }));
+              }}
+            />
+            ×
+          </span>
+        </label>
+        <label
+          className={
+            "composer__pb-opt" + (playback.kind === "pause" ? " is-active" : "")
+          }
+        >
+          <input
+            type="radio"
+            name="composer-playback"
+            checked={playback.kind === "pause"}
+            onChange={() => setPlayback((p) => ({ ...p, kind: "pause" }))}
+          />
+          <span className="composer__pb-opt-text">Pause until continue</span>
+        </label>
       </div>
 
       <QuickLibrary
